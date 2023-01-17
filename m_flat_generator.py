@@ -45,6 +45,7 @@ for filt in flat_filters:
                                      sigma_clip=True, sigma_clip_low_thresh=5, sigma_clip_high_thresh=5,
                                      sigma_clip_func=np.ma.median, sigma_clip_dev_func=mad_std,maxiters=2
                                     )
+
     combined_flat.meta['combined'] = True
     flat_file_name = 'master_flat_{}.fits'.format(filt)
     combined_flat.write(os.path.join(main_p, flat_file_name), overwrite=True)
