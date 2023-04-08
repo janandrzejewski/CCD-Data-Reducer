@@ -32,8 +32,18 @@ To start use:
 ```commandline
 python astro_reduction_tool.py -d main_folder_dir -md master_dark_dir -mb master_bias_dir
 ```
+| Argument | Required | Description |
+| ---- | ---- | ---------------------------- |
+| -d   | Yes  | The path to the directory    |
+| -mb  | Yes  | The path to the master_bias  |
+| -md  | Yes  | The path to the master_dark  |
+| -mf  | No   | The path to the master_flats. if you already made master_flats and you don't want to make new ones just add -mf dir-to-flat-subfolder      |
 
-if you already made master_flats and you don't want to make new ones just add -mf dir to flat subfolder
+Make sure to replace main_folder_dir, master_dark_dir, and master_bias_dir with the actual file paths on your system.
+For example:
+```commandline
+python astro_reduction_tool.py -d 2023_01_05/ -md ../dark_mode3_usb50_gain0_offset10_temp-5.fit -mb ../bias_mode3_usb50_gain0_offset10_temp-5.fit 
+```
 ## Development
 
 Imports are organized with `isort`.
