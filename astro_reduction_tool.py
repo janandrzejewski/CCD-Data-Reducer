@@ -146,13 +146,17 @@ def folders_reduction(dir_folder, m_dark, m_bias, m_flat_dictionary, folder):
                 ccd_file = ccdp.flat_correct(
                     dark_subtracted, m_flat_dictionary[f], min_value=0.01
                 )
+                ccd_file.meta["HISTORY"] = "Bias corrected"
+                ccd_file.meta["HISTORY"] = "Dark corrected"
+                ccd_file.meta["HISTORY"] = "Flat corrected"
+                ccd_file.data = ccd_file.data.astype(np.uint16)          
                 ccd_file.write(os.path.join(out_dir, ccd_name), overwrite=True)
                 log(
                     "Saved %s (%d in %d)",
                     os.path.join(out_dir, ccd_name),
                     ccd_file_idx + 1,
                     max,
-                )
+                )  
             log("Subtracted %s folder in %s filtr", folder, f)
 
 
