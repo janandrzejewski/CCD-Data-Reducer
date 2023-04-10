@@ -1,4 +1,5 @@
 import argparse
+import configparser
 import logging
 import os
 from datetime import datetime
@@ -12,6 +13,16 @@ from astropy.stats import mad_std
 
 logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler()])
 logger = logging.getLogger()
+
+config = configparser.ConfigParser()
+config.read("config.ini")
+
+flat_image_type = config["data"]["flat_image_type"]
+flat_dir = config["data"]["flat_dir"]
+flat_keywords = config["processing"]["flat_keywords"]
+combine_method = config["processing"]["combine_method"]
+sigma_clip_low_thresh_config = float(config["processing"]["sigma_clip_low_thresh"])
+sigma_clip_high_thresh_config = float(config["processing"]["sigma_clip_high_thresh"])
 
 
 class ccdData:
@@ -65,7 +76,7 @@ def read_path_into_CCDData(data_path, keys, _filter=None, ifc_master_flat=None):
                     "Loading %s file %s (%d of %d)",
                     ccd_file.header["IMAGETYP"],
                     ccd_path,
-                    ccd_path_idx+1,
+                    ccd_path_idx + 1,
                     max,
                 )
     ccd_data_list = ccdData(data_list, name_list)
@@ -96,18 +107,18 @@ def debias_dedark(file_list, master_dark, master_bias):
 def master_flat_generator(flat_p, master_dark, master_bias, filt):
     m_flat = []
     m_flat_n = []
-    keys = ["imagetyp", "filter"]
+    keys = flat_keywords
     for f in filt:
         flat_data = read_path_into_CCDData(flat_p, keys, f)
         flat_subtracted_list = debias_dedark(flat_data, master_dark, master_bias)
         combined_flat = ccdp.combine(
             flat_subtracted_list,
-            method="median",
+            method=combine_method,
             unit=u.adu,
             scale=inv_median,
             sigma_clip=True,
-            sigma_clip_low_thresh=5.0,
-            sigma_clip_high_thresh=5.0,
+            sigma_clip_low_thresh=sigma_clip_low_thresh_config,
+            sigma_clip_high_thresh=sigma_clip_high_thresh_config,
             sigma_clip_func=np.ma.median,
             sigma_clip_dev_func=mad_std,
             flat=2,
@@ -124,12 +135,12 @@ def master_flat_generator(flat_p, master_dark, master_bias, filt):
 
 def folders_reduction(dir_folder, m_dark, m_bias, m_flat_dictionary, folder):
     path = os.path.join(dir_folder, folder)
-    ifc_folder = ccdp.ImageFileCollection(path, keywords=["imagetyp", "filter"])
+    ifc_folder = ccdp.ImageFileCollection(path, keywords=flat_keywords)
     filt = set(h["filter"] for h in ifc_folder.headers())
     out_dir = os.path.join(path, "pipeline_out")
     os.makedirs(out_dir, exist_ok=True)
     for f in filt:
-        ccd_folder = read_path_into_CCDData(path, ["imagetyp", "filter"], f)
+        ccd_folder = read_path_into_CCDData(path, flat_keywords, f)
         max = len(ccd_folder.data_list)
         if max != 0:
             ccd_file_idx = 0
@@ -149,14 +160,14 @@ def folders_reduction(dir_folder, m_dark, m_bias, m_flat_dictionary, folder):
                 ccd_file.meta["HISTORY"] = "Bias corrected"
                 ccd_file.meta["HISTORY"] = "Dark corrected"
                 ccd_file.meta["HISTORY"] = "Flat corrected"
-                ccd_file.data = ccd_file.data.astype(np.uint16)          
+                ccd_file.data = ccd_file.data.astype(np.uint16)
                 ccd_file.write(os.path.join(out_dir, ccd_name), overwrite=True)
                 log(
                     "Saved %s (%d in %d)",
                     os.path.join(out_dir, ccd_name),
                     ccd_file_idx + 1,
                     max,
-                )  
+                )
             log("Subtracted %s folder in %s filtr", folder, f)
 
 
@@ -177,9 +188,9 @@ def astro_reduction(args):
         unit="adu",
     )
     flat_image_type = "flat"
-    flat_p = os.path.join(args.dir, "flat")
+    flat_p = os.path.join(args.dir, flat_dir)
     if args.master_flat is None:
-        ifc_flat = ccdp.ImageFileCollection(flat_p, keywords=["imagetyp", "filter"])
+        ifc_flat = ccdp.ImageFileCollection(flat_p, keywords=flat_keywords)
         flat_filters = set(
             h["filter"] for h in ifc_flat.headers(imagetyp=flat_image_type)
         )
@@ -195,15 +206,9 @@ def astro_reduction(args):
             None,
             ifc_flat.files_filtered(combined=True),
         )
-    m_flat_dictionary = {
-        "gs": [],
-        "rs": [],
-        "in": [],
-        "Luminance": [],
-        "B": [],
-        "V": [],
-        "R": [],
-    }
+    m_flat_dictionary = {}
+    for f in flat_filters:
+        m_flat_dictionary[f] = None
     for ccd_file in m_flat_list.data_list:
         filter = ccd_file.header["filter"]
         m_flat_dictionary[filter] = ccd_file
